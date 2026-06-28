@@ -100,7 +100,7 @@ def run_epoch(
     criterion: nn.Module,
     device: torch.device,
     optimizer: AdamW | None = None,
-    scaler: torch.cuda.amp.GradScaler | None = None,
+    scaler: torch.amp.GradScaler | None = None,
     collect_metrics: bool = True,
 ) -> tuple[float, list[int], list[int]]:
     is_train = optimizer is not None
@@ -119,7 +119,7 @@ def run_epoch(
 
         with torch.set_grad_enabled(is_train):
             if scaler is not None:
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast(device_type=device.type):
                     logits = model(images)
                     loss = criterion(logits, labels)
             else:
@@ -155,7 +155,7 @@ def calculate_metrics(labels: list[int], predictions: list[int]) -> dict[str, fl
     }
 
 
-def write_history_csv(history: list[dict[str, float]], path: Path) -> None:
+def write_history_csv(history: list[dict[str, float | str]], path: Path) -> None:
     with open(path, "w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=list(history[0].keys()))
         writer.writeheader()
@@ -180,9 +180,9 @@ def main() -> None:
     criterion = nn.CrossEntropyLoss(label_smoothing=config.label_smoothing)
     optimizer = build_optimizer(model, config)
     scheduler = create_scheduler(optimizer, config)
-    scaler = torch.cuda.amp.GradScaler() if device.type == "cuda" and config.use_mixed_precision else None
+    scaler = torch.amp.GradScaler("cuda") if device.type == "cuda" and config.use_mixed_precision else None
 
-    history: list[dict[str, float]] = []
+    history: list[dict[str, float | str]] = []
     best_score = -math.inf
     patience_counter = 0
     best_checkpoint_path = artifact_dir / "best.pt"
@@ -207,7 +207,7 @@ def main() -> None:
         if train_labels and train_predictions:
             train_metrics = calculate_metrics(train_labels, train_predictions)
         else:
-            train_metrics = {"accuracy": 0.0, "f1": 0.0}
+            train_metrics = None
 
         should_validate = epoch == 1 or epoch % config.validate_every == 0 or epoch == config.epochs
         if should_validate:
@@ -222,24 +222,28 @@ def main() -> None:
             valid_score = float(valid_metrics["f1"])
         else:
             valid_loss = float("nan")
-            valid_metrics = {"accuracy": 0.0, "f1": 0.0}
+            valid_metrics = None
             valid_score = best_score
 
         epoch_summary = {
             "epoch": epoch,
             "train_loss": round(train_loss, 6),
             "valid_loss": round(valid_loss, 6) if not math.isnan(valid_loss) else "",
-            "train_accuracy": round(float(train_metrics["accuracy"]), 6),
-            "valid_accuracy": round(float(valid_metrics["accuracy"]), 6),
-            "train_f1": round(float(train_metrics["f1"]), 6),
-            "valid_f1": round(float(valid_metrics["f1"]), 6),
+            "train_accuracy": round(float(train_metrics["accuracy"]), 6) if train_metrics is not None else "",
+            "valid_accuracy": round(float(valid_metrics["accuracy"]), 6) if valid_metrics is not None else "",
+            "train_f1": round(float(train_metrics["f1"]), 6) if train_metrics is not None else "",
+            "valid_f1": round(float(valid_metrics["f1"]), 6) if valid_metrics is not None else "",
         }
         history.append(epoch_summary)
 
+        train_f1_display = f"{train_metrics['f1']:.4f}" if train_metrics is not None else "skipped"
+        valid_f1_display = f"{valid_metrics['f1']:.4f}" if valid_metrics is not None else "skipped"
+        valid_loss_display = valid_loss if math.isnan(valid_loss) else f"{valid_loss:.4f}"
+
         print(
             f"epoch={epoch} "
-            f"train_loss={train_loss:.4f} valid_loss={valid_loss if math.isnan(valid_loss) else f'{valid_loss:.4f}'} "
-            f"train_f1={train_metrics['f1']:.4f} valid_f1={valid_metrics['f1']:.4f} "
+            f"train_loss={train_loss:.4f} valid_loss={valid_loss_display} "
+            f"train_f1={train_f1_display} valid_f1={valid_f1_display} "
             f"device={device.type}"
         )
 
