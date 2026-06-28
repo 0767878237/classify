@@ -36,6 +36,7 @@ classify/
 |-- configs/
 |   |-- resnet18_cpu.yaml
 |   |-- resnet18_cpu_fast.yaml
+|   |-- resnet18_cpu_ultrafast.yaml
 |   `-- resnet34_accuracy.yaml
 |-- artifacts/
 |-- outputs/
@@ -159,6 +160,18 @@ File: `configs/resnet18_cpu_fast.yaml`
 - Chi train classification head
 - Validation thua hon de giam thoi gian moi epoch
 - Nen dung dau tien neu may khong co GPU
+- Da chot `num_workers: 0` theo benchmark tren may Windows cua ban
+
+### CPU-ultrafast
+
+File: `configs/resnet18_cpu_ultrafast.yaml`
+
+- Model: `resnet18`
+- Batch size: `64`
+- Image size: `128`
+- Chi train classification head
+- Validation rat thua
+- Dung khi can lap thu nhanh, debug pipeline, hoac test nhieu lan
 
 ## Cai dat
 
@@ -204,6 +217,12 @@ Neu muon uu tien toc do train tren CPU:
 python -m src.train --config configs/resnet18_cpu_fast.yaml
 ```
 
+Neu muon nhanh nhat co the tren CPU:
+
+```powershell
+python -m src.train --config configs/resnet18_cpu_ultrafast.yaml
+```
+
 ## Cach infer
 
 Sau khi da co `artifacts/best.pt`:
@@ -245,13 +264,14 @@ Minh da toi uu lai pipeline theo huong CPU-first:
 - Bo tinh metric train moi epoch khi khong can
 - Cho phep chi train classification head
 - Validation khong can chay moi epoch
-- Tang `num_workers` de nap du lieu song song
+- Chon `num_workers: 0` tren Windows khi benchmark thuc te cho thay worker startup dat hon loi ich
 
 Neu may ban van cham, thu theo thu tu nay:
 
 1. `python -m src.train --config configs/resnet18_cpu_fast.yaml`
-2. `python -m src.train --config configs/resnet18_cpu.yaml`
-3. `python -m src.train --config configs/resnet34_accuracy.yaml`
+2. `python -m src.train --config configs/resnet18_cpu_ultrafast.yaml`
+3. `python -m src.train --config configs/resnet18_cpu.yaml`
+4. `python -m src.train --config configs/resnet34_accuracy.yaml`
 
 ## File sinh ra sau khi train
 
@@ -265,6 +285,7 @@ Neu may ban van cham, thu theo thu tu nay:
 - Neu ban muon toi uu thang theo `valid_accuracy`, minh co the chinh lai trong 1 phut.
 - `ResNet34` tren CPU se chay kha lau. Neu uu tien trai nghiem phat trien tren may ca nhan, hay chay `ResNet18` truoc de xac nhan pipeline.
 - Neu 1 epoch truoc day mat khoang 30 phut, nguyen nhan chinh thuong la do `224x224` + augmentation nang + validation day du moi epoch tren CPU.
+- Benchmark tren may ban cho thay `num_workers=0` cho tong thoi gian epoch tot hon `1` va `2`, du `train_sec_per_batch` co the nhinh hon mot chut, vi startup worker tren Windows qua ton.
 
 ## Buoc tiep theo de nen lam
 
