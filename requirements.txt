@@ -4,3 +4,8 @@ scikit-learn
 pandas
 Pillow
 PyYAML
+fastapi
+uvicorn
+python-multipart
+streamlit
+requests

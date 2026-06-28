@@ -30,6 +30,7 @@ classify/
 |   |-- datasets.py
 |   |-- transforms.py
 |   |-- model.py
+|   |-- predictor.py
 |   |-- train.py
 |   |-- infer.py
 |   `-- utils.py
@@ -40,6 +41,8 @@ classify/
 |   `-- resnet34_accuracy.yaml
 |-- artifacts/
 |-- outputs/
+|-- api.py
+|-- app.py
 |-- requirements.txt
 `-- README.md
 ```
@@ -294,3 +297,60 @@ Neu ban muon, minh co the lam tiep ngay 1 trong 3 huong:
 1. Them script danh gia anh predict sai de xem cac truong hop mo hinh nham.
 2. Them file `app.py` hoac API nho de demo cho doanh nghiep.
 3. Them notebook EDA va bao cao metric truc quan.
+
+## Demo API + Streamlit
+
+Du an hien tai da co:
+
+- `api.py`: FastAPI backend de load model 1 lan va predict anh moi upload
+- `app.py`: Streamlit UI tieng Anh de demo ket qua
+- `src/predictor.py`: shared inference helper cho backend
+
+### Chay backend API
+
+```powershell
+uvicorn api:app --host 127.0.0.1 --port 8000 --reload
+```
+
+API se co:
+
+- `GET /health`
+- `POST /predict`
+
+### Chay giao dien Streamlit
+
+Mo terminal khac trong cung thu muc project:
+
+```powershell
+streamlit run app.py
+```
+
+### Luong demo
+
+1. Start API
+2. Start Streamlit
+3. Mo giao dien tren browser
+4. Upload anh cho hoac meo moi
+5. Bam `Run Prediction`
+6. Xem:
+   - predicted label
+   - confidence
+   - dog probability
+   - cat probability
+   - review recommendation
+
+### Man hinh co san trong Streamlit
+
+- `Model Overview`
+  - hien best metric tu `artifacts/best_metrics.json`
+  - hien chart tu `outputs/training_history.csv`
+
+- `Predict New Image`
+  - upload anh moi
+  - goi API de predict
+
+- `Batch Predictions`
+  - doc `outputs/predictions.jsonl`
+  - loc theo nhan
+  - loc cac du doan can review
+  - tai `submission.csv` va `predictions.jsonl`
