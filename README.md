@@ -7,7 +7,7 @@ Du an nay phan loai anh cho va meo tu:
 - `data/train`: `25,000` anh co nhan
 - `data/test`: `12,500` anh khong co nhan
 
-Pipeline da duoc thuc thi theo huong ban chot:
+Pipeline:
 
 - Muc tieu chinh: `accuracy toi da`
 - Tu dong dung `GPU` neu may co, neu khong se fallback sang `CPU`
@@ -163,7 +163,6 @@ File: `configs/resnet18_cpu_fast.yaml`
 - Chi train classification head
 - Validation thua hon de giam thoi gian moi epoch
 - Nen dung dau tien neu may khong co GPU
-- Da chot `num_workers: 0` theo benchmark tren may Windows cua ban
 
 ### CPU-ultrafast
 
@@ -260,14 +259,13 @@ Neu muon day accuracy len tiep, nen thu theo thu tu sau:
 
 ## Toi uu toc do train
 
-Minh da toi uu lai pipeline theo huong CPU-first:
+Pipeline theo huong CPU-first:
 
 - Giam `image_size` o che do nhanh
 - Dung augmentation nhe hon
 - Bo tinh metric train moi epoch khi khong can
 - Cho phep chi train classification head
 - Validation khong can chay moi epoch
-- Chon `num_workers: 0` tren Windows khi benchmark thuc te cho thay worker startup dat hon loi ich
 
 Neu may ban van cham, thu theo thu tu nay:
 
@@ -285,18 +283,8 @@ Neu may ban van cham, thu theo thu tu nay:
 ## Ghi chu quan trong
 
 - `train.py` dang luu best model theo `valid_f1`, vi metric nay can bang hon accuracy trong giai doan toi uu. Tuy nhien voi bo du lieu can bang nhu hien tai, khi `f1` tang thi accuracy thuong cung tang rat sat.
-- Neu ban muon toi uu thang theo `valid_accuracy`, minh co the chinh lai trong 1 phut.
 - `ResNet34` tren CPU se chay kha lau. Neu uu tien trai nghiem phat trien tren may ca nhan, hay chay `ResNet18` truoc de xac nhan pipeline.
 - Neu 1 epoch truoc day mat khoang 30 phut, nguyen nhan chinh thuong la do `224x224` + augmentation nang + validation day du moi epoch tren CPU.
-- Benchmark tren may ban cho thay `num_workers=0` cho tong thoi gian epoch tot hon `1` va `2`, du `train_sec_per_batch` co the nhinh hon mot chut, vi startup worker tren Windows qua ton.
-
-## Buoc tiep theo de nen lam
-
-Neu ban muon, minh co the lam tiep ngay 1 trong 3 huong:
-
-1. Them script danh gia anh predict sai de xem cac truong hop mo hinh nham.
-2. Them file `app.py` hoac API nho de demo cho doanh nghiep.
-3. Them notebook EDA va bao cao metric truc quan.
 
 ## Demo API + Streamlit
 
