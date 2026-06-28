@@ -1,22 +1,26 @@
 # Dog vs Cat Classification with ResNet
 
-## Tong quan
+## Overview
 
-Du an nay phan loai anh cho va meo tu:
+This project classifies dog and cat images from:
 
-- `data/train`: `25,000` anh co nhan
-- `data/test`: `12,500` anh khong co nhan
+- `data/train`: `25,000` labeled images
+- `data/test`: `12,500` unlabeled images
 
-Pipeline da duoc thuc thi theo huong ban chot:
+Current project goals:
 
-Muc tieu chinh: accuracy toi da
-Tu dong dung GPU neu may co, neu khong se fallback sang CPU
-Output vua phu hop competition, vua trinh bay on voi doanh nghiep
-Mo hinh hien tai dung transfer learning voi ResNet va da co san:
+- maximize accuracy
+- use GPU automatically when available, otherwise fall back to CPU
+- provide outputs suitable for both competition-style scoring and business demos
 
-ResNet34 la config mac dinh de uu tien accuracy
-ResNet18 la config nhe hon de chay tren CPU nhanh hon
-Cau truc du an
+The current project includes:
+
+- `ResNet34` as the accuracy-first option
+- `ResNet18` as the lighter and faster option for CPU usage
+
+## Project Structure
+
+```text
 classify/
 |-- data/
 |   |-- train/
@@ -41,75 +45,87 @@ classify/
 |-- app.py
 |-- requirements.txt
 `-- README.md
-Flow thuc te
-1. Doc anh tu data/train
-2. Tach train/valid theo stratified split
-3. Augmentation + normalize theo ImageNet
-4. Load ResNet pretrained
-5. Freeze backbone trong vai epoch dau
-6. Unfreeze va fine-tune de toi da hoa ket qua
-7. Luu checkpoint tot nhat theo valid F1
-8. Chay infer tren data/test
-9. Xuat:
+```
+
+## End-to-End Flow
+
+```text
+1. Read images from data/train
+2. Split train/valid with stratified sampling
+3. Apply augmentation and ImageNet normalization
+4. Load a pretrained ResNet
+5. Freeze the backbone for warmup
+6. Unfreeze and fine-tune
+7. Save the best checkpoint by validation F1
+8. Run inference on data/test
+9. Export:
    - submission.csv
    - predictions.jsonl
-Thanh phan chinh
-src/datasets.py
+```
 
-Tach nhan tu ten file cat.xxx.jpg va dog.xxx.jpg
-Tao dataset cho train/valid va infer
-src/transforms.py
+## Main Components
 
-Train transforms co augmentation vua phai
-Eval transforms on dinh cho validation va inference
-src/model.py
+- `src/datasets.py`
+  - Extract labels from `cat.xxx.jpg` and `dog.xxx.jpg`
+  - Build datasets for train, validation, and inference
 
-Ho tro resnet18 va resnet34
-Thay head cuoi cho bai toan 2 lop
-src/train.py
+- `src/transforms.py`
+  - Training transforms with augmentation
+  - Stable evaluation transforms for validation and inference
 
-Tu dong chon cuda neu co, neu khong dung cpu
-Freeze/unfreeze fine-tune
-Early stopping
-Luu artifacts/best.pt
-src/infer.py
+- `src/model.py`
+  - Supports `resnet18` and `resnet34`
+  - Replaces the final head for binary classification
 
-Load checkpoint tot nhat
-Infer theo batch
-Xuat 2 dinh dang ket qua
-Output cho doanh nghiep
-Du an xuat 2 file:
+- `src/train.py`
+  - Automatically chooses `cuda` when available, else `cpu`
+  - Supports freeze/unfreeze fine-tuning
+  - Uses early stopping
+  - Saves `artifacts/best.pt`
 
-1. outputs/submission.csv
-Format gon, hop voi competition hoac workflow scoring:
+- `src/infer.py`
+  - Loads the best checkpoint
+  - Runs batch inference
+  - Exports two output formats
 
+- `src/predictor.py`
+  - Shared prediction helper for Streamlit and optional API usage
+
+## Output Files
+
+The project exports two useful output formats.
+
+### `outputs/submission.csv`
+
+Competition-style output:
+
+```csv
 id,label
 1,0.998421
 2,0.031552
-Y nghia:
+```
 
-id: id anh test
-label: xac suat la dog
-2. outputs/predictions.jsonl
-Format nay phu hop hon khi demo voi doanh nghiep, vi moi dong la mot record co du:
+Meaning:
 
-id anh
-duong dan file
-nhan du doan
-confidence
-xac suat cho/meo
-co can review thu cong hay khong
-Vi du:
+- `id`: test image id
+- `label`: probability that the image is a dog
 
+### `outputs/predictions.jsonl`
+
+Business-demo-friendly output with richer details:
+
+```json
 {"image_id":"1","file_path":"data/test/1.jpg","predicted_label":"dog","confidence":0.998421,"dog_probability":0.998421,"cat_probability":0.001579,"review_recommended":false}
-Format nay de dua vao:
+```
 
-- dashboard
-- API response
-- luong duyet noi bo
-- bao cao demo voi doanh nghiep
+Useful for:
 
-## Cau hinh hien co
+- dashboards
+- API responses
+- manual review workflows
+- internal demo reports
+
+## Available Configs
 
 ### Accuracy-first
 
@@ -120,7 +136,7 @@ File: `configs/resnet34_accuracy.yaml`
 - Epochs: `24`
 - Freeze warmup: `2`
 - Early stopping: `5`
-- Dung cho truong hop uu tien ket qua tot nhat co the
+- Best when your main goal is top performance
 
 ### CPU-friendly
 
@@ -129,7 +145,7 @@ File: `configs/resnet18_cpu.yaml`
 - Model: `resnet18`
 - Batch size: `16`
 - Epochs: `18`
-- Nhe hon, hop khi train tren CPU lau dai
+- Lighter than the accuracy-first setup
 
 ### CPU-fast
 
@@ -138,10 +154,10 @@ File: `configs/resnet18_cpu_fast.yaml`
 - Model: `resnet18`
 - Batch size: `32`
 - Image size: `160`
-- Chi train classification head
-- Validation thua hon de giam thoi gian moi epoch
-- Nen dung dau tien neu may khong co GPU
-- Da chot `num_workers: 0` theo benchmark tren may Windows cua ban
+- Trains only the classification head
+- Validates less often to reduce epoch time
+- Recommended first choice on machines without a GPU
+- Uses `num_workers: 0` based on Windows benchmarking
 
 ### CPU-ultrafast
 
@@ -150,164 +166,188 @@ File: `configs/resnet18_cpu_ultrafast.yaml`
 - Model: `resnet18`
 - Batch size: `64`
 - Image size: `128`
-- Chi train classification head
-- Validation rat thua
-- Dung khi can lap thu nhanh, debug pipeline, hoac test nhieu lan
+- Trains only the classification head
+- Very sparse validation
+- Best for quick experiments and debugging
 
-## Cai dat
+## Installation
 
-Neu moi truong `venv` hien tai cua ban dang loi, ban nen tao lai venv sach:
+If your current `venv` is broken, recreate it:
 
+```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Neu may co nhieu Python, co the dung:
+```
 
+If you have multiple Python versions:
+
+```powershell
 py -3.12 -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Cach train
-Mac dinh hien tai, src/train.py da uu tien config accuracy:
+```
 
+## Training
+
+Default training command:
+
+```powershell
 python -m src.train
-Hoac chi dinh ro config:
+```
 
+Accuracy-first config:
+
+```powershell
 python -m src.train --config configs/resnet34_accuracy.yaml
-Neu muon train nhe hon tren CPU:
+```
 
+CPU-friendly config:
+
+```powershell
 python -m src.train --config configs/resnet18_cpu.yaml
-Neu muon uu tien toc do train tren CPU:
+```
 
+CPU-fast config:
+
+```powershell
 python -m src.train --config configs/resnet18_cpu_fast.yaml
-Neu muon nhanh nhat co the tren CPU:
+```
 
+CPU-ultrafast config:
+
+```powershell
 python -m src.train --config configs/resnet18_cpu_ultrafast.yaml
-Cach infer
-Sau khi da co artifacts/best.pt:
+```
 
+## Inference
+
+After you have `artifacts/best.pt`:
+
+```powershell
 python -m src.infer --checkpoint artifacts/best.pt
-Ket qua se duoc luu vao:
+```
 
-outputs/submission.csv
-outputs/predictions.jsonl
-Cach pipeline tu chon thiet bi
-Code hien tai tu dong chon:
+Generated files:
 
-cuda neu torch.cuda.is_available() == True
-cpu neu may khong co GPU
-Ban khong can sua code de chay tren may hien tai khong co GPU.
+- `outputs/submission.csv`
+- `outputs/predictions.jsonl`
 
-Chien luoc toi uu accuracy
-Neu muon day accuracy len tiep, nen thu theo thu tu sau:
+## Device Selection
 
-1. Train `resnet34_accuracy.yaml` truoc
-2. Tang `epochs` neu valid metric van di len
-3. Tang `tta_passes` trong config khi infer
-4. Giam learning rate backbone them mot chut
-5. Thu review cac anh predict sai tu confusion pattern
+The pipeline automatically chooses:
 
-## Toi uu toc do train
+- `cuda` if `torch.cuda.is_available() == True`
+- `cpu` otherwise
 
-Minh da toi uu lai pipeline theo huong CPU-first:
+You do not need to manually edit the code for CPU-only machines.
 
-- Giam `image_size` o che do nhanh
-- Dung augmentation nhe hon
-- Bo tinh metric train moi epoch khi khong can
-- Cho phep chi train classification head
-- Validation khong can chay moi epoch
-- Chon `num_workers: 0` tren Windows khi benchmark thuc te cho thay worker startup dat hon loi ich
+## Accuracy Strategy
 
-Neu may ban van cham, thu theo thu tu nay:
+If you want to push accuracy higher, try this order:
+
+1. Train `resnet34_accuracy.yaml` first.
+2. Increase `epochs` if validation metrics are still improving.
+3. Increase `tta_passes` during inference.
+4. Reduce backbone learning rate slightly.
+5. Review failure cases and hard examples.
+
+## CPU Speed Optimization
+
+This project was optimized for CPU-first usage:
+
+- reduced image size in fast modes
+- lighter augmentation
+- skipped train metrics when not needed
+- optional head-only training
+- validation not required every epoch
+- `num_workers: 0` on Windows when benchmarked faster overall
+
+If your machine is still slow, try in this order:
 
 1. `python -m src.train --config configs/resnet18_cpu_fast.yaml`
 2. `python -m src.train --config configs/resnet18_cpu_ultrafast.yaml`
 3. `python -m src.train --config configs/resnet18_cpu.yaml`
 4. `python -m src.train --config configs/resnet34_accuracy.yaml`
 
-## File sinh ra sau khi train
+## Training Outputs
 
-- `artifacts/best.pt`: checkpoint tot nhat
-- `artifacts/best_metrics.json`: metric tot nhat
-- `outputs/training_history.csv`: lich su train theo epoch
+- `artifacts/best.pt`: best checkpoint
+- `artifacts/best_metrics.json`: best validation metrics
+- `outputs/training_history.csv`: per-epoch training history
 
-## Ghi chu quan trong
+## Important Notes
 
-- `train.py` dang luu best model theo `valid_f1`, vi metric nay can bang hon accuracy trong giai doan toi uu. Tuy nhien voi bo du lieu can bang nhu hien tai, khi `f1` tang thi accuracy thuong cung tang rat sat.
-- Neu ban muon toi uu thang theo `valid_accuracy`, minh co the chinh lai trong 1 phut.
-- `ResNet34` tren CPU se chay kha lau. Neu uu tien trai nghiem phat trien tren may ca nhan, hay chay `ResNet18` truoc de xac nhan pipeline.
-- Neu 1 epoch truoc day mat khoang 30 phut, nguyen nhan chinh thuong la do `224x224` + augmentation nang + validation day du moi epoch tren CPU.
-- Benchmark tren may ban cho thay `num_workers=0` cho tong thoi gian epoch tot hon `1` va `2`, du `train_sec_per_batch` co the nhinh hon mot chut, vi startup worker tren Windows qua ton.
+- `train.py` saves the best model by `valid_f1`, which is a balanced choice for this binary task.
+- On this balanced dataset, higher `f1` usually tracks closely with higher accuracy.
+- `ResNet34` on CPU will still be noticeably slower than `ResNet18`.
+- If your old epochs took around 30 minutes, the main causes were usually `224x224` images, heavier augmentation, and full validation every epoch.
+- Benchmarking on your Windows machine showed `num_workers=0` gave the best total runtime compared with `1` or `2`, mainly because worker startup cost was too high.
 
-## Buoc tiep theo de nen lam
+## Streamlit Demo
 
-Neu ban muon, minh co the lam tiep ngay 1 trong 3 huong:
+The project now includes:
 
-1. Them script danh gia anh predict sai de xem cac truong hop mo hinh nham.
-2. Them file `app.py` hoac API nho de demo cho doanh nghiep.
-3. Them notebook EDA va bao cao metric truc quan.
+- `app.py`: English Streamlit UI for demos
+- `src/predictor.py`: shared helper that loads the model and predicts directly inside Streamlit
+- `api.py`: optional FastAPI backend for future separated deployments
 
-## Demo API + Streamlit
+### Recommended Deployment Mode
 
-Du an hien tai da co:
-
-- `app.py`: Streamlit UI tieng Anh de demo ket qua
-- `src/predictor.py`: shared inference helper de load model va predict truc tiep trong Streamlit
-- `api.py`: FastAPI backend tuy chon, de dung khi ban muon tach rieng UI va backend sau nay
-
-### Cach chay toi uu cho deploy Streamlit
+For Streamlit deployment, the best option is:
 
 ```powershell
 streamlit run app.py
 ```
 
-App se:
+The app will:
 
-- load `artifacts/best.pt` truc tiep
-- cache model bang `st.cache_resource`
-- khong can `127.0.0.1:8000`
-- khong reload model moi lan upload anh
+- load `artifacts/best.pt` directly
+- cache the model with `st.cache_resource`
+- avoid any dependency on `127.0.0.1:8000`
+- avoid reloading the model on every upload
 
-### Luong demo
+### Demo Flow
 
-1. Start Streamlit
-2. Mo giao dien tren browser
-3. Upload anh cho hoac meo moi
-4. Bam `Run Prediction`
-5. Xem:
+1. Start Streamlit.
+2. Open the app in the browser.
+3. Upload a new dog or cat image.
+4. Click `Run Prediction`.
+5. Review:
    - predicted label
    - confidence
    - dog probability
    - cat probability
    - review recommendation
 
-### Man hinh co san trong Streamlit
+### Streamlit Screens
 
 - `Model Overview`
-  - hien best metric tu `artifacts/best_metrics.json`
-  - hien chart tu `outputs/training_history.csv`
+  - reads best metrics from `artifacts/best_metrics.json`
+  - reads charts from `outputs/training_history.csv`
 
 - `Predict New Image`
-  - upload anh moi
-  - predict truc tiep trong app
+  - upload a new image
+  - predict directly inside the app
 
 - `Batch Predictions`
-  - doc `outputs/predictions.jsonl`
-  - loc theo nhan
-  - loc cac du doan can review
-  - tai `submission.csv` va `predictions.jsonl`
+  - reads `outputs/predictions.jsonl`
+  - filters by predicted label
+  - filters flagged rows
+  - downloads `submission.csv` and `predictions.jsonl`
 
-### Khi nao moi can API rieng
+### When to Use the API
 
-Neu sau nay ban muon:
+Only use the separate API if you later want:
 
-- mot frontend rieng
-- mobile app goi predict
-- he thong doanh nghiep goi qua HTTP
+- a separate frontend
+- a mobile app calling prediction over HTTP
+- another business system integrating with your model service
 
-thi moi can chay them:
+Then you can run:
 
 ```powershell
 uvicorn api:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Con voi demo Streamlit deploy len cloud, cach toi uu va on dinh nhat la predict truc tiep trong `app.py`.
+For a deployed Streamlit demo, direct prediction inside `app.py` is the simplest and most reliable setup.
