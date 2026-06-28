@@ -6,7 +6,7 @@ model_name: resnet34
 image_size: 224
 batch_size: 8
 epochs: 24
-num_workers: 0
+num_workers: 2
 learning_rate_head: 0.001
 learning_rate_backbone: 0.00008
 weight_decay: 0.0001
@@ -20,3 +20,8 @@ freeze_epochs: 2
 tta_passes: 1
 use_mixed_precision: true
 enterprise_threshold: 0.8
+validate_every: 1
+compute_train_metrics: false
+fine_tune_backbone: true
+cpu_num_threads: 4
+use_fast_transforms: false

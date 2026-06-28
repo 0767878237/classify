@@ -40,6 +40,11 @@ class TrainingConfig:
     tta_passes: int
     use_mixed_precision: bool
     enterprise_threshold: float
+    validate_every: int
+    compute_train_metrics: bool
+    fine_tune_backbone: bool
+    cpu_num_threads: int
+    use_fast_transforms: bool
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "TrainingConfig":

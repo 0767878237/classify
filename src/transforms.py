@@ -20,6 +20,19 @@ def build_train_transforms(image_size: int) -> transforms.Compose:
     )
 
 
+def build_fast_train_transforms(image_size: int) -> transforms.Compose:
+    resize_size = image_size + 16
+    return transforms.Compose(
+        [
+            transforms.Resize((resize_size, resize_size)),
+            transforms.RandomCrop(image_size),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+        ]
+    )
+
+
 def build_eval_transforms(image_size: int) -> transforms.Compose:
     resize_size = int(image_size * 256 / 224)
     return transforms.Compose(

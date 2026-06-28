@@ -35,6 +35,7 @@ classify/
 |   `-- utils.py
 |-- configs/
 |   |-- resnet18_cpu.yaml
+|   |-- resnet18_cpu_fast.yaml
 |   `-- resnet34_accuracy.yaml
 |-- artifacts/
 |-- outputs/
@@ -148,6 +149,17 @@ File: `configs/resnet18_cpu.yaml`
 - Epochs: `18`
 - Nhe hon, hop khi train tren CPU lau dai
 
+### CPU-fast
+
+File: `configs/resnet18_cpu_fast.yaml`
+
+- Model: `resnet18`
+- Batch size: `32`
+- Image size: `160`
+- Chi train classification head
+- Validation thua hon de giam thoi gian moi epoch
+- Nen dung dau tien neu may khong co GPU
+
 ## Cai dat
 
 Neu moi truong `venv` hien tai cua ban dang loi, ban nen tao lai venv sach:
@@ -186,6 +198,12 @@ Neu muon train nhe hon tren CPU:
 python -m src.train --config configs/resnet18_cpu.yaml
 ```
 
+Neu muon uu tien toc do train tren CPU:
+
+```powershell
+python -m src.train --config configs/resnet18_cpu_fast.yaml
+```
+
 ## Cach infer
 
 Sau khi da co `artifacts/best.pt`:
@@ -218,6 +236,23 @@ Neu muon day accuracy len tiep, nen thu theo thu tu sau:
 4. Giam learning rate backbone them mot chut
 5. Thu review cac anh predict sai tu confusion pattern
 
+## Toi uu toc do train
+
+Minh da toi uu lai pipeline theo huong CPU-first:
+
+- Giam `image_size` o che do nhanh
+- Dung augmentation nhe hon
+- Bo tinh metric train moi epoch khi khong can
+- Cho phep chi train classification head
+- Validation khong can chay moi epoch
+- Tang `num_workers` de nap du lieu song song
+
+Neu may ban van cham, thu theo thu tu nay:
+
+1. `python -m src.train --config configs/resnet18_cpu_fast.yaml`
+2. `python -m src.train --config configs/resnet18_cpu.yaml`
+3. `python -m src.train --config configs/resnet34_accuracy.yaml`
+
 ## File sinh ra sau khi train
 
 - `artifacts/best.pt`: checkpoint tot nhat
@@ -229,6 +264,7 @@ Neu muon day accuracy len tiep, nen thu theo thu tu sau:
 - `train.py` dang luu best model theo `valid_f1`, vi metric nay can bang hon accuracy trong giai doan toi uu. Tuy nhien voi bo du lieu can bang nhu hien tai, khi `f1` tang thi accuracy thuong cung tang rat sat.
 - Neu ban muon toi uu thang theo `valid_accuracy`, minh co the chinh lai trong 1 phut.
 - `ResNet34` tren CPU se chay kha lau. Neu uu tien trai nghiem phat trien tren may ca nhan, hay chay `ResNet18` truoc de xac nhan pipeline.
+- Neu 1 epoch truoc day mat khoang 30 phut, nguyen nhan chinh thuong la do `224x224` + augmentation nang + validation day du moi epoch tren CPU.
 
 ## Buoc tiep theo de nen lam
 
