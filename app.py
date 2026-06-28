@@ -4,17 +4,24 @@ import json
 from pathlib import Path
 
 import pandas as pd
-import requests
 import streamlit as st
 from PIL import Image
+
+from src.predictor import DogCatPredictor
 
 
 st.set_page_config(page_title="Dog vs Cat Demo", page_icon="🐾", layout="wide")
 
-API_URL = st.sidebar.text_input("API base URL", value="http://127.0.0.1:8000")
+CHECKPOINT_PATH = Path("artifacts/best.pt")
 METRICS_PATH = Path("artifacts/best_metrics.json")
 HISTORY_PATH = Path("outputs/training_history.csv")
 PREDICTIONS_PATH = Path("outputs/predictions.jsonl")
+SUBMISSION_PATH = Path("outputs/submission.csv")
+
+
+@st.cache_resource
+def load_predictor() -> DogCatPredictor:
+    return DogCatPredictor(checkpoint_path=CHECKPOINT_PATH)
 
 
 @st.cache_data
@@ -46,18 +53,6 @@ def load_predictions() -> pd.DataFrame | None:
     return pd.DataFrame(records)
 
 
-def check_api_health(api_url: str) -> tuple[bool, str]:
-    try:
-        response = requests.get(f"{api_url.rstrip('/')}/health", timeout=5)
-        response.raise_for_status()
-        payload = response.json()
-        if not payload.get("model_loaded", False):
-            return False, "API is running but the model checkpoint is not loaded."
-        return True, "API is ready."
-    except Exception as exc:  # noqa: BLE001
-        return False, f"API is unavailable: {exc}"
-
-
 def render_overview() -> None:
     st.subheader("Model Overview")
 
@@ -74,23 +69,27 @@ def render_overview() -> None:
 
     if history is not None and not history.empty:
         chart_df = history.copy()
-        st.line_chart(chart_df.set_index("epoch")[["train_loss", "valid_loss"]], height=260)
-        st.line_chart(chart_df.set_index("epoch")[["valid_accuracy", "valid_f1"]], height=260)
+        loss_columns = [column for column in ["train_loss", "valid_loss"] if column in chart_df.columns]
+        metric_columns = [column for column in ["valid_accuracy", "valid_f1"] if column in chart_df.columns]
+
+        if loss_columns:
+            st.line_chart(chart_df.set_index("epoch")[loss_columns], height=260)
+        if metric_columns:
+            st.line_chart(chart_df.set_index("epoch")[metric_columns], height=260)
     else:
         st.info("No training history available yet.")
 
 
-def render_prediction(api_url: str) -> None:
+def render_prediction() -> None:
     st.subheader("Predict a New Image")
 
-    is_ready, message = check_api_health(api_url)
-    if is_ready:
-        st.success(message)
-    else:
-        st.warning(message)
+    if not CHECKPOINT_PATH.exists():
+        st.error("Model checkpoint `artifacts/best.pt` was not found.")
+        return
 
     uploaded_file = st.file_uploader("Upload a cat or dog image", type=["jpg", "jpeg", "png"])
     if uploaded_file is None:
+        st.caption("The model is loaded once and cached inside Streamlit for fast repeated predictions.")
         return
 
     image = Image.open(uploaded_file)
@@ -98,25 +97,19 @@ def render_prediction(api_url: str) -> None:
     col1.image(image, caption="Uploaded image", use_container_width=True)
 
     if col2.button("Run Prediction", type="primary", use_container_width=True):
-        if not is_ready:
-            col2.error("The API is not ready. Start the backend first.")
-            return
-
-        files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
         try:
-            response = requests.post(f"{api_url.rstrip('/')}/predict", files=files, timeout=30)
-            response.raise_for_status()
-            result = response.json()
+            predictor = load_predictor()
+            result = predictor.predict_pil(image)
         except Exception as exc:  # noqa: BLE001
             col2.error(f"Prediction failed: {exc}")
             return
 
-        col2.metric("Predicted Label", result["predicted_label"].title())
-        col2.metric("Confidence", f"{result['confidence']:.4f}")
-        col2.progress(result["dog_probability"], text=f"Dog probability: {result['dog_probability']:.4f}")
-        col2.progress(result["cat_probability"], text=f"Cat probability: {result['cat_probability']:.4f}")
+        col2.metric("Predicted Label", result.predicted_label.title())
+        col2.metric("Confidence", f"{result.confidence:.4f}")
+        col2.progress(result.dog_probability, text=f"Dog probability: {result.dog_probability:.4f}")
+        col2.progress(result.cat_probability, text=f"Cat probability: {result.cat_probability:.4f}")
 
-        if result["review_recommended"]:
+        if result.review_recommended:
             col2.warning("Low confidence. Human review is recommended.")
         else:
             col2.success("Prediction confidence is strong enough for demo use.")
@@ -141,10 +134,10 @@ def render_predictions_table() -> None:
 
     st.dataframe(filtered, use_container_width=True, height=360)
 
-    if Path("outputs/submission.csv").exists():
+    if SUBMISSION_PATH.exists():
         st.download_button(
             "Download submission.csv",
-            data=Path("outputs/submission.csv").read_bytes(),
+            data=SUBMISSION_PATH.read_bytes(),
             file_name="submission.csv",
             mime="text/csv",
         )
@@ -158,9 +151,18 @@ def render_predictions_table() -> None:
         )
 
 
+def render_deployment_notes() -> None:
+    with st.sidebar:
+        st.header("Deployment Notes")
+        st.info("This Streamlit app predicts images directly without requiring a separate API server.")
+        st.caption("The model is cached with `st.cache_resource`, so it is not reloaded on every upload.")
+
+
 def main() -> None:
     st.title("Dog vs Cat Prediction Demo")
-    st.caption("Simple English demo UI powered by FastAPI + Streamlit.")
+    st.caption("Simple English demo UI for uploaded-image prediction.")
+
+    render_deployment_notes()
 
     overview_tab, predict_tab, table_tab = st.tabs(
         ["Model Overview", "Predict New Image", "Batch Predictions"]
@@ -170,7 +172,7 @@ def main() -> None:
         render_overview()
 
     with predict_tab:
-        render_prediction(API_URL)
+        render_prediction()
 
     with table_tab:
         render_predictions_table()
